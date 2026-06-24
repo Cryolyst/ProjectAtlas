@@ -2,7 +2,7 @@
 An ESP32-controlled self-balancing robot utilizing MPU6050 sensor, real-time PID control, custom PCBS and 3d printed parts and NEMA 17 stepper motors.
 
 ## Overview
-Project Atlast is an exploration into embedded real-time control systems, sensor fusion and robotics. The robot uses a complementary filter to fuse accelerometer and gyroscope data from an MPU6050. This clean angle data feeds into a high-speed PID control loop to drive two NEMA 17 stepper motors, which would keep the chassis perfectly balanced. The chassis will also be 3d printed.
+Project Atlast is an exploration into embedded real-time control systems, sensor fusion and robotics. The robot uses a complementary filter to fuse accelerometer and gyroscope data from an MPU6050. This clean angle data feeds into a high-speed PID control loop to drive two NEMA 17 stepper motors, which would keep the chassis perfectly balanced. 
 
 ## Hardware Components
 - 1x ESP32 DOIT DevKit V1
