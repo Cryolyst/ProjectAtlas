@@ -6,7 +6,7 @@ Project Atlast is an exploration into embedded real-time control systems, sensor
 
 ## Hardware Components
 - 1x ESP32 DOIT DevKit V1
-- 1x GY521 MPU6050
+- 1x BNO085
 - 2x NEMA 17 Stepper Motors (1.8° step angle)
 - 2x BIGTREETECH TMC2209 V1.3
 - 1x 3S (11.1V) 1500mAh LiPo Battery
