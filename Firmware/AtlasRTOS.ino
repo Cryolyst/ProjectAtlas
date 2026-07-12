@@ -119,7 +119,16 @@ void UITask(void *pvParameters) {
 }
 
 void setup() {
+  Serial.begin(115200);
+  // Core 1 Balancing Task
+  xTaskCreatePinnedToCore(
+    CoreTask, "CoreTask", 10000, NULL, 1, &CoreTaskHandle, 1
+  );
 
+  // Core 0 UI Task
+  xTaskCreatePinnedToCore(
+    UITask, "UITask", 10000, NULL, 0, &CoreTaskHandle, 0
+  );
 }
 
 void loop() {
