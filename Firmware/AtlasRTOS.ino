@@ -4,18 +4,19 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <MD_MAX72xx.h>
+#include <esp_task_wdt.h>
 
 //--- UI Related Pins and Variables Beginning ---
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES 2
 
 // HSPI Pins
-#define HSPI_MOSI 13
+#define HSPI_MOSI 13 // DIN
 #define HSPI_MISO 15
-#define HSPI_SCLK 14
-#define HSPI_CS   12
+#define HSPI_SCLK 14 // CLK
+#define HSPI_CS   12 // CS
 
-MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, HSPI_CS, MAX_DEVICES);
+MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, HSPI_MOSI, HSPI_SCLK, HSPI_CS, MAX_DEVICES);
 
 // All the eye shapes
 const byte openEye[8] = {
@@ -57,9 +58,13 @@ const byte rightEye[8] = {
 volatile float currentPitch = 0.0;
 
 // P.I.D values
-const float kP = 0.0;
+const float kP = 200.0;
 const float kI = 0.0;
-const float kD = 0.0;
+const float kD = 2.0;
+
+float targetPitch = 0.0; // PLEASE CHANGE WHEN THE PCB ARRIVES
+float errorSum = 0.0;
+float lastError = 0.0;
 
 // IMU setup
 BNO080 IMU;
@@ -125,30 +130,51 @@ void CoreTask(void *pvParameters) {
   // 5ms = 200Hz
   IMU.enableGameRotationVector(5);
 
-  // TickType_t defines the exact timing interval
-  // 5ms = 200Hz this ensures that the loop runs exactly every 5ms
-  TickType_t xLastWakeTime;
-  const TickType_t xFrequency = 5 / portTICK_PERIOD_MS;
-  xLastWakeTime = xTaskGetTickCount();
+  leftMotor.setMaxSpeed(20000);
+  rightMotor.setMaxSpeed(200000);
+
+  // Timing variables for the PID calculation
+  unsigned long lastPIDTime = micros();
+  const unsigned long PIDInterval = 5000; // 5000 us = 5ms = 200Hz
+
+  esp_task_wdt_add(NULL);
 
   // Task L O O P Phase
   for (;;) {
+    leftMotor.runSpeed();
+    rightMotor.runSpeed();
+
+    // Watchdog timer
+    esp_task_wdt_reset();
+
     if (digitalRead(BNO_INT) == LOW) {
       if (IMU.dataAvailable() == true) {
         float pitchRad = IMU.getPitch();
-
         currentPitch = pitchRad * (180.0 / PI);
       }
     }
-    // 2. Calculate PID
-    // 3. Step motors
-    
-    // Update the global variable so Core 0 can see it
-    // currentPitch = myIMU.getPitch() * (180.0 / PI); 
 
-    // This command tells FreeRTOS: "I am done. Pause this task and 
-    // wake me up exactly 5ms from the last time I woke up."
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    // Check to see if 5ms has passed on the PID loop
+    if (micros() - lastPIDTime >= PIDInterval) {
+      lastPIDTime = micros();
+
+        // --------- PID ---------
+        float error = targetPitch - currentPitch;
+
+        // Integral Calculation
+        errorSum += error;
+        errorSum = constrain(errorSum, -2000, 2000);
+
+        // Derivative Calculation
+        float dError = error - lastError;
+        lastError = error;
+
+        // PID equation
+        float PID = (kP * error) + (kI * errorSum) + (kD * dError); 
+
+        leftMotor.setSpeed(PID);
+        rightMotor.setSpeed(-PID);
+    }
   }
 }
 
@@ -192,3 +218,5 @@ void setup() {
 void loop() {
   vTaskDelete(NULL);
 }
+
+// Note to self, motors A+ -> A2, B+ -> B2
