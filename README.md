@@ -18,4 +18,4 @@ Project Atlast is an exploration into embedded real-time control systems, sensor
 # Software Architecture
 - **Hardware-Accelerated Sensor Fusion:** Offloads complex orientation math to the BNO085's internal 32-bit ARM Cortex-M0+ coprocessor. Utilizes the CEVA Game Rotation Vector (high-speed Accelerometer + Gyroscope fusion at 200Hz) to provide zero-drift, noise-immune quaternions/Euler angles directly to the ESP32, entirely eliminating computational overhead and software filtering on the main control loop.
 - **Non-Blocking Timing:** Built using microsecond-precision timing (micros()) to maintain a strict, stutter-free control loop (e.g., 200Hz).
-- **Dual-Core Processing (Planned):** Utilizes FreeRTOS to pin the mission-critical PID balancing loop to Core 1, while Core 0 handles asynchronous tasks like serial telemetry and UI updates.
+- **Dual-Core Processing:** Utilizes FreeRTOS to pin the mission-critical PID balancing loop to Core 1, while Core 0 handles asynchronous tasks like serial telemetry and UI updates.
