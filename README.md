@@ -20,8 +20,7 @@ Project Atlas is a custom-designed, two-wheeled self-balancing robot. This proje
 ## Repository Structure
 *   `/Firmware` - ESP32 C/C++ source code, FreeRTOS tasks, and PID control logic.
 *   `/Hardware` - KiCad project files, schematics (PDF), and Gerber files for the 4-layer PCB.
-*   `/Mechanical` - STL files and Fusion 360 step files for the chassis.
-*   `/Docs` - System block diagrams, BOM (Bill of Materials), and assembly photos.
+*   `/Hardware/3D Prints` - STL files and Fusion 360 step files for the chassis.
 
 ## Current Status
 *   **Phase 1:** Breadboard prototyping and base firmware structure - *Complete*
