@@ -5,6 +5,16 @@
 #include <SPI.h>
 #include <MD_MAX72xx.h>
 #include <esp_task_wdt.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
+// PID Values that worked : P800 I20 D350
+
+#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" 
+#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 //--- UI Related Pins and Variables Beginning ---
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
@@ -58,9 +68,9 @@ const byte rightEye[8] = {
 volatile float currentPitch = 0.0;
 
 // P.I.D values
-const float kP = 200.0;
-const float kI = 0.0;
-const float kD = 2.0;
+volatile float kP = 100.0;
+volatile float kI = 0.0;
+volatile float kD = 0.0;
 
 float targetPitch = 0.0; // PLEASE CHANGE WHEN THE PCB ARRIVES
 float errorSum = 0.0;
@@ -93,6 +103,56 @@ AccelStepper rightMotor(1, right_stepPin, right_dirPin);
 // Two different Tasks for FreeRTOS
 TaskHandle_t CoreTaskHandle;
 TaskHandle_t UITaskHandle;
+
+// Third one for Bluetooth
+TaskHandle_t BLETaskHandle;
+
+class myCallBacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pCharacteristic) {
+    String rxValue = pCharacteristic -> getValue().c_str();
+
+    if (rxValue.length() > 0) {
+      char command = rxValue[0];
+      float value = rxValue.substring(1).toFloat();
+
+      if (command == 'P' || command == 'p') kP = value;
+      else if (command == 'I' || command == 'i') kI = value;
+      else if (command == 'D' || command == 'd') kD = value;
+
+      Serial.print("Updated -> P: "); Serial.print(kP);
+      Serial.print(" I: "); Serial.print(kI);
+      Serial.print(" D: "); Serial.print(kD);
+    }
+  }
+};
+
+void BLETask(void *pvParameters) {
+  BLEDevice::init("Project Atlas");
+  BLEServer *pServer = BLEDevice::createServer();
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  // RX Characteristic (Phone -> ESP32)
+  BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
+                       CHARACTERISTIC_UUID_RX,
+                       BLECharacteristic::PROPERTY_WRITE
+                     );
+  pRxCharacteristic->setCallbacks(new myCallBacks());
+
+  // TX Characteristic (ESP32 -> Phone)
+  BLECharacteristic *pTxCharacteristic = pService->createCharacteristic(
+                       CHARACTERISTIC_UUID_TX,
+                       BLECharacteristic::PROPERTY_NOTIFY
+                     );
+  pTxCharacteristic->addDescriptor(new BLE2902());
+
+  pService->start();
+  pServer->getAdvertising()->start();
+  Serial.println("BLE Ready. Connect via iPhone.");
+
+  for (;;) {
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
 
 void drawEyes(int deviceIndex, const byte sprite[]) {
   for (int row = 0; row < 8; row++) {
@@ -131,7 +191,7 @@ void CoreTask(void *pvParameters) {
   IMU.enableGameRotationVector(5);
 
   leftMotor.setMaxSpeed(20000);
-  rightMotor.setMaxSpeed(200000);
+  rightMotor.setMaxSpeed(20000);
 
   // Timing variables for the PID calculation
   unsigned long lastPIDTime = micros();
@@ -213,10 +273,15 @@ void setup() {
   xTaskCreatePinnedToCore(
     UITask, "UITask", 10000, NULL, 0, &UITaskHandle, 0
   );
+
+  xTaskCreatePinnedToCore(
+    BLETask, "BLETask", 10000, NULL, 0, &BLETaskHandle, 0
+  );
 }
 
 void loop() {
   vTaskDelete(NULL);
 }
 
-// Note to self, motors A+ -> A2, B+ -> B2
+// Note to self, motors A+ -> A2, A- -> A1, B+ -> B2, B- -> B1
+// Motor Wires, Black (A+), Green (B+), Blue(A-), Red(B-)
